@@ -20,11 +20,12 @@
         const discard = getSuggestedDiscard(handTiles);
         src.delete();
 
-        window.parent.postMessage({
-          type: "analysisResult",
-          tiles: handTiles,
-          discard
-        }, "*");
+      window.parent.postMessage({
+  type: "analysisResult",
+  tiles: handTiles,
+  discard
+}, "https://mahjongfriendsonline.com");
+
       };
     };
     img.src = URL.createObjectURL(blob);
