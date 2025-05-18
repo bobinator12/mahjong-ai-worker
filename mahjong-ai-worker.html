@@ -14,18 +14,20 @@
     const blob = await fetch(event.data.blobUrl).then(r => r.blob());
     const img = new Image();
     img.onload = async () => {
+      console.log("📡 Blob received, loading image...");
       cv['onRuntimeInitialized'] = async () => {
+        console.log("📥 Image received:", img.width, img.height);
         const src = cv.imread(img);
         const handTiles = await matchTiles(src);
         const discard = getSuggestedDiscard(handTiles);
+        console.log("🧠 Matching complete:", handTiles, discard);
         src.delete();
 
-      window.parent.postMessage({
-  type: "analysisResult",
-  tiles: handTiles,
-  discard
-}, "https://mahjongfriendsonline.com");
-
+        window.parent.postMessage({
+          type: "analysisResult",
+          tiles: handTiles,
+          discard
+        }, "https://mahjongfriendsonline.com");
       };
     };
     img.src = URL.createObjectURL(blob);
