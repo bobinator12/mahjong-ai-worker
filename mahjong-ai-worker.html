@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mahjong AI Worker</title>
+  <script src="https://docs.opencv.org/4.x/opencv.js"></script>
+</head>
+<body>
+<script>
+  window.addEventListener("message", async (event) => {
+    if (!event.data || event.data.type !== "analyzeImage") return;
+
+    const blob = await fetch(event.data.blobUrl).then(r => r.blob());
+    const img = new Image();
+    img.onload = async () => {
+      cv['onRuntimeInitialized'] = async () => {
+        const src = cv.imread(img);
+        const handTiles = await matchTiles(src);
+        const discard = getSuggestedDiscard(handTiles);
+        src.delete();
+
+        window.parent.postMessage({
+          type: "analysisResult",
+          tiles: handTiles,
+          discard
+        }, "*");
+      };
+    };
+    img.src = URL.createObjectURL(blob);
+  });
+
+  async function matchTiles(src) {
+    const tileWidth = 40;
+    const tileHeight = 100;
+    const tiles = [];
+    const suits = ["m", "p", "s"];
+
+    const tileList = [];
+    for (const suit of suits) {
+      for (let i = 1; i <= 9; i++) {
+        tileList.push(`${i}${suit}`);
+      }
+    }
+
+    for (let i = 0; i < 13; i++) {
+      const roi = src.roi(new cv.Rect(i * tileWidth, 0, tileWidth, tileHeight));
+      let bestTile = null;
+      let bestScore = -Infinity;
+
+      for (const tileName of tileList) {
+        const template = new Image();
+        template.src = `${tileName}.png`;
+
+        await new Promise(resolve => {
+          template.onload = () => {
+            const tplMat = cv.imread(template);
+            const result = new cv.Mat();
+            cv.matchTemplate(roi, tplMat, result, cv.TM_CCOEFF_NORMED);
+            const score = cv.minMaxLoc(result).maxVal;
+            if (score > bestScore) {
+              bestScore = score;
+              bestTile = tileName;
+            }
+            tplMat.delete();
+            result.delete();
+            resolve();
+          };
+        });
+      }
+
+      roi.delete();
+      tiles.push(bestTile);
+    }
+
+    return tiles;
+  }
+
+  function getSuggestedDiscard(tiles) {
+    const counts = {};
+    for (const t of tiles) counts[t] = (counts[t] || 0) + 1;
+    let maxTile = tiles[0];
+    for (const t of tiles) {
+      if (counts[t] > counts[maxTile]) {
+        maxTile = t;
+      }
+    }
+    return maxTile;
+  }
+</script>
+</body>
+</html>
